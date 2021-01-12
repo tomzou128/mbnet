@@ -17,7 +17,7 @@ export default function RecognitionScreen() {
 
   const [predictions, setPredictions] = useState('')
 
-  const [loadModel, classifyImage] = TFModel();
+  const [prepareModel, classifyImage] = TFModel();
 
   // get permission first
   useEffect(() => {
@@ -50,11 +50,12 @@ export default function RecognitionScreen() {
   // take picture, not finished
   const takePicture = async () => {
     if (!cameraRef) return
-    let photo = await cameraRef.current.takePictureAsync({quality: 0})
-    photo = ImageEditor.cropImage(photo.uri, {
-      offset: {x: 100, y: 100},
-      size: {width: 100, height: 100},
-      //displaySize: {width: number, height: number},
+    let photo = await cameraRef.current.takePictureAsync().then(({ uri, width, height }) => {
+      ImageEditor.cropImage(uri, {
+         offset: { x: 0, y: 0 },
+         size: { width, height },
+         displaySize: { width: 400, height: 400},
+      })
     })
     console.log(photo)
 
