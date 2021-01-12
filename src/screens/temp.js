@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {Camera} from 'expo-camera'
-import TFModel from '../components/TFModel'
-import ImageEditor from "@react-native-community/image-editor";
 import {StyleSheet, Text, View, TouchableOpacity, Platform, ImageBackground} from 'react-native'
+import TFModel from './src/components/TFModel'
 
 export default function RecognitionScreen() {
   DESIRED_RATIO = '1:1'
@@ -15,17 +14,15 @@ export default function RecognitionScreen() {
   const [previewVisible, setPreviewVisible] = useState(false)
   const [capturedImage, setCapturedImage] = useState(null)
 
-  const [predictions, setPredictions] = useState('')
-
-  const [loadModel, classifyImage] = TFModel();
+  const [predictions, setPredictions] = useState(null)
 
   // get permission first
   useEffect(() => {
     (async () => {
       const { status } = await Camera.requestPermissionsAsync()
       setHasPermission(status === 'granted')
-      console.log('in useeffect');
-      prepareModel()
+
+      
     })()
   }, []);
 
@@ -36,7 +33,7 @@ export default function RecognitionScreen() {
   if (hasPermission === false) {
     return <Text>No access to camera</Text>;
   } else {
-    console.log('got permission, from screen');
+    console.log('got permission');
   }
 
   // change the ratio of camera
@@ -50,19 +47,12 @@ export default function RecognitionScreen() {
   // take picture, not finished
   const takePicture = async () => {
     if (!cameraRef) return
-    let photo = await cameraRef.current.takePictureAsync({quality: 0})
-    photo = ImageEditor.cropImage(photo.uri, {
-      offset: {x: 100, y: 100},
-      size: {width: 100, height: 100},
-      //displaySize: {width: number, height: number},
-    })
+    const photo = await cameraRef.current.takePictureAsync()
     console.log(photo)
 
     setPreviewVisible(true)
     setCapturedImage(photo)
-    console.log('passing image to model');
-    const predictions = classifyImage(photo.uri)
-    setPredictions(predictions)
+
   }
 
   const retakePicture = () => {
@@ -123,11 +113,6 @@ export default function RecognitionScreen() {
           <Text style={styles.text}> Flip </Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.predictionWrapper}>
-        <Text style={styles.text}>
-          Predictions: {predictions ? predictions.className : ''}
-        </Text>
-      </View>
     </View>
   )
 }
@@ -155,7 +140,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     alignItems: 'center',
   },
-  rectangle: {
+  redSquare: {
     borderWidth: 3,
     borderColor: 'red',
     width: '70%',
@@ -163,6 +148,6 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 18,
-    color: 'yellow',
+    color: 'white',
   },
 });

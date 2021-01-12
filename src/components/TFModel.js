@@ -1,37 +1,27 @@
-import React from 'react'
-import { StyleSheet, Text, View, ActivityIndicator, StatusBar, Image, TouchableOpacity, ImageBackgroundComponent } from 'react-native'
+import React, {useState} from 'react'
 
 import * as tf from '@tensorflow/tfjs'
 import * as mobilenet from '@tensorflow-models/mobilenet'
+import { fetch } from '@tensorflow/tfjs-react-native'
 
 import Constants from 'expo-constants'
 import * as Permissions from 'expo-permissions'
 
 import * as jpeg from 'jpeg-js'
-import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
 
-class TFModel extends React.Component {
-  state = {
-    isTfReady: false,
-    isModelReady: false,
-    predictions: null,
-    image: null
-  }
+export default function TFModel() {
+  const [ready, setReady] = useState(false)
+  const model = null
 
-  // Initialization
-  async componentDidMount() {
+  const prepareModel = async () => {
     await tf.ready()
-    this.setState({
-      isTfReady: true
-    })
-    this.model = await mobilenet.load({version: 2})
-    this.setState({ isModelReady: true })
-
-    this.getPermissionAsync()
+    this.model = await mobilenet.load({version: 2, alpha: 1.0})
+    getPermissionAsync()
+    setReady(true)
   }
 
-  getPermissionAsync = async () => {
+  const getPermissionAsync = async () => {
     if (Constants.platform.ios || Constants.platform.android) {
       const { status } = await Permissions.askAsync(Permissions.CAMERA)
       if (status !== 'granted') {
@@ -40,7 +30,7 @@ class TFModel extends React.Component {
     }
   }
 
-  imageToTensor(rawImageData) {
+  const imageToTensor = (rawImageData) => {
     const TO_UINT8ARRAY = true
     const { width, height, data } = jpeg.decode(rawImageData, TO_UINT8ARRAY)
     // Drop the alpha channel info for mobilenet
@@ -53,162 +43,31 @@ class TFModel extends React.Component {
 
       offset += 4
     }
-
     return tf.tensor3d(buffer, [height, width, 3])
   }
 
-  classifyImage = async () => {
+  const classifyImage = async (uri) => {
+    if (ready === false){
+      console.log('model.error');
+      return 'model error'
+    }
+    console.log('received image from: ', uri);
     try {
-      const imageAssetPath = Image.resolveAssetSource(this.state.image)
-      console.log(imageAssetPath.uri);
-      const imgB64 = await FileSystem.readAsStringAsync(imageAssetPath.uri, {
+      const imgB64 = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
       const rawImageData = new Uint8Array(tf.util.encodeString(imgB64, 'base64').buffer)  
       
-      const imageTensor = this.imageToTensor(rawImageData)
+      const imageTensor = imageToTensor(rawImageData)
       const predictions = await this.model.classify(imageTensor)
 
-      this.setState({ predictions })
       console.log(predictions)
+      return predictions
     } catch (error) {
       console.log(error)
     }
   }
 
-  selectImage = async () => {
-    try {
-      let response = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
-        allowsEditing: true,
-        aspect: [4, 3]
-      })
-  
-      if (!response.cancelled) {
-        const source = { uri: response.uri }
-        this.setState({ image: source })
-        this.classifyImage()
-      }
-    } catch (error) {
-      console.log(error)
-    }
-  }
-
-  renderPrediction = prediction => {
-    return (
-      <Text key={prediction.className} style={styles.text}>
-        {prediction.className}
-      </Text>
-    )
-  }
-
-  render() {
-    const { isTfReady, isModelReady, predictions, image } = this.state
-
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle='light-content' />
-        <View style={styles.loadingContainer}>
-          <Text style={styles.text}>
-            TFJS ready? {isTfReady ? <Text>✅</Text> : ''}
-          </Text>
-
-          <View style={styles.loadingModelContainer}>
-            <Text style={styles.text}>Model ready? </Text>
-            {isModelReady ? (
-              <Text style={styles.text}>✅</Text>
-            ) : (
-              <ActivityIndicator size='small' />
-            )}
-          </View>
-        </View>
-        <TouchableOpacity
-          style={styles.imageWrapper}
-          onPress={isModelReady ? this.selectImage : undefined}>
-          {image && <Image source={image} style={styles.imageContainer} />}
-
-          {isModelReady && !image && (
-            <Text style={styles.transparentText}>Tap to choose image</Text>
-          )}
-        </TouchableOpacity>
-        <View style={styles.predictionWrapper}>
-          {isModelReady && image && (
-            <Text style={styles.text}>
-              Predictions: {predictions ? '' : 'Predicting...'}
-            </Text>
-          )}
-          {isModelReady &&
-            predictions &&
-            predictions.map(p => this.renderPrediction(p))}
-        </View>
-      </View>
-    )
-  }
+  return [prepareModel, classifyImage]
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#171f24',
-    alignItems: 'center'
-  },
-  loadingContainer: {
-    marginTop: 80,
-    justifyContent: 'center'
-  },
-  text: {
-    color: '#ffffff',
-    fontSize: 16
-  },
-  loadingModelContainer: {
-    flexDirection: 'row',
-    marginTop: 10
-  },
-  imageWrapper: {
-    width: 280,
-    height: 280,
-    padding: 10,
-    borderColor: '#cf667f',
-    borderWidth: 5,
-    borderStyle: 'dashed',
-    marginTop: 40,
-    marginBottom: 10,
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  imageContainer: {
-    width: 250,
-    height: 250,
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    bottom: 10,
-    right: 10
-  },
-  predictionWrapper: {
-    height: 100,
-    width: '100%',
-    flexDirection: 'column',
-    alignItems: 'center'
-  },
-  transparentText: {
-    color: '#ffffff',
-    opacity: 0.7
-  },
-  footer: {
-    marginTop: 40
-  },
-  poweredBy: {
-    fontSize: 20,
-    color: '#e69e34',
-    marginBottom: 6
-  },
-  tfLogo: {
-    width: 125,
-    height: 70
-  }
-})
-
-export default TFModel
