@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {Camera} from 'expo-camera'
 import TFModel from '../components/TFModel'
-import ImageEditor from "@react-native-community/image-editor";
+//import ImageEditor from "@react-native-community/image-editor";
 import {StyleSheet, Text, View, TouchableOpacity, Platform, ImageBackground} from 'react-native'
 
 export default function RecognitionScreen() {
@@ -10,13 +10,12 @@ export default function RecognitionScreen() {
   const [hasPermission, setHasPermission] = useState(null);
   const [type, setType] = useState(Camera.Constants.Type.back);
   const [ratio, setRatio] = useState('')
-  const cameraRef = useRef(null)
+  const camera = useRef(null)
 
   const [previewVisible, setPreviewVisible] = useState(false)
   const [capturedImage, setCapturedImage] = useState(null)
 
   const [predictions, setPredictions] = useState('')
-
   const [prepareModel, classifyImage] = TFModel();
 
   // get permission first
@@ -24,56 +23,47 @@ export default function RecognitionScreen() {
     (async () => {
       const { status } = await Camera.requestPermissionsAsync()
       setHasPermission(status === 'granted')
-      console.log('in useeffect');
+      console.log('in useeffect')
       prepareModel()
     })()
   }, []);
 
-  if (hasPermission === null) {
+  if (hasPermission === null || hasPermission === false) {
+    console.log('no access to camera');
     return <View />;
-  }
-
-  if (hasPermission === false) {
-    return <Text>No access to camera</Text>;
-  } else {
-    console.log('got permission, from screen');
   }
 
   // change the ratio of camera
   prepareRatio = async () => {
-    if (Platform.OS === 'android' && cameraRef){
-      const ratios = await cameraRef.current.getSupportedRatiosAsync();
+    if (Platform.OS === 'android' && camera){
+      const ratios = await camera.current.getSupportedRatiosAsync();
       setRatio(ratios.find((ratio) => ratio === DESIRED_RATIO) || ratios[ratios.length - 1])
     }
   }
 
-  // take picture, not finished
   const takePicture = async () => {
-    if (!cameraRef) return
-    let photo = await cameraRef.current.takePictureAsync().then(({ uri, width, height }) => {
-      ImageEditor.cropImage(uri, {
-         offset: { x: 0, y: 0 },
-         size: { width, height },
-         displaySize: { width: 400, height: 400},
-      })
-    })
-    console.log(photo)
+    if (!camera) return
+    let photo = await camera.current.takePictureAsync({quality: 0.5})
+    console.log('take picture', photo)
 
     setPreviewVisible(true)
     setCapturedImage(photo)
+
     console.log('passing image to model');
-    const predictions = classifyImage(photo.uri)
-    setPredictions(predictions)
+    const pred = classifyImage(photo.uri)
+    //setPredictions(pred)
+    //console.log('screen page', pred);
   }
 
   const retakePicture = () => {
+    //console.log(predictions)
+    setPredictions('')
     setCapturedImage(null)
     setPreviewVisible(false)
   }
 
   // not yet tested
   const CameraPreview = ({photo}) => {
-    console.log('sdsfds', photo)
     return (
       <ImageBackground
         source={{uri: photo && photo.uri}}
@@ -88,7 +78,7 @@ export default function RecognitionScreen() {
       {previewVisible && capturedImage ? (
         <CameraPreview photo={capturedImage} />
       ) : (
-        <Camera ref={cameraRef} onCameraReady={prepareRatio} style={styles.camera} type={type} ratio={ratio}>
+        <Camera ref={camera} onCameraReady={prepareRatio} style={styles.camera} type={type} ratio={ratio}>
           <View style={styles.redSquare}></View>
         </Camera>
       )}
@@ -126,7 +116,7 @@ export default function RecognitionScreen() {
       </View>
       <View style={styles.predictionWrapper}>
         <Text style={styles.text}>
-          Predictions: {predictions ? predictions.className : ''}
+          Predictions: {predictions ? predictions.className : 'nothing/predicting'}
         </Text>
       </View>
     </View>

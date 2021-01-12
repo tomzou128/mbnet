@@ -12,11 +12,12 @@ import * as FileSystem from 'expo-file-system'
 
 export default function TFModel() {
   const [ready, setReady] = useState(false)
-  const model = null
 
   const prepareModel = async () => {
     await tf.ready()
-    this.model = await mobilenet.load({version: 2, alpha: 1.0})
+    if (!this.model) {
+      this.model = await mobilenet.load({version: 2, alpha: 1.0})
+    }
     getPermissionAsync()
     setReady(true)
   }
@@ -47,9 +48,10 @@ export default function TFModel() {
   }
 
   const classifyImage = async (uri) => {
-    if (ready === false){
-      console.log('model.error');
-      return 'model error'
+    prepareModel()
+    console.log('hi');
+    if (this.model === undefined || this.model === null) {
+      console.log('model error');
     }
     console.log('received image from: ', uri);
     try {
@@ -62,7 +64,7 @@ export default function TFModel() {
       const imageTensor = imageToTensor(rawImageData)
       const predictions = await this.model.classify(imageTensor)
 
-      console.log(predictions)
+      console.log('model page', predictions)
       return predictions
     } catch (error) {
       console.log(error)
