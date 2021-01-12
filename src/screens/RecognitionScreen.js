@@ -28,9 +28,10 @@ export default function RecognitionScreen() {
     })()
   }, []);
 
-  if (hasPermission === null || hasPermission === false) {
-    console.log('no access to camera');
-    return <View />;
+  if (hasPermission === false || hasPermission === null) {
+    return <Text>No access to camera</Text>;
+  } else {
+    console.log('got permission, from screen');
   }
 
   // change the ratio of camera
@@ -42,17 +43,27 @@ export default function RecognitionScreen() {
   }
 
   const takePicture = async () => {
-    if (!camera) return
-    let photo = await camera.current.takePictureAsync({quality: 0.5})
-    console.log('take picture', photo)
+    if (!cameraRef) return
+    let photo = await cameraRef.current.takePictureAsync()
+    /*
+    .then(({ uri, width, height }) => {
+      ImageEditor.cropImage(uri, {
+         offset: { x: 0, y: 0 },
+         size: { width, height },
+         displaySize: { width: 400, height: 400},
+      })
+    })
+    */
+    console.log(photo)
 
     setPreviewVisible(true)
     setCapturedImage(photo)
 
     console.log('passing image to model');
-    const pred = classifyImage(photo.uri)
-    //setPredictions(pred)
-    //console.log('screen page', pred);
+    //const predictions = classifyImage(photo.uri)
+    //setPredictions(predictions)
+    setPredictions(await classifyImage(photo.uri))
+    console.log(predictions);
   }
 
   const retakePicture = () => {
@@ -62,13 +73,20 @@ export default function RecognitionScreen() {
     setPreviewVisible(false)
   }
 
-  // not yet tested
   const CameraPreview = ({photo}) => {
     return (
       <ImageBackground
         source={{uri: photo && photo.uri}}
         style={styles.camera}
       />
+    )
+  }
+
+  const renderPrediction = (prediction) => {
+    return (
+      <Text key={prediction.className} style={styles.text}>
+        {prediction.className}
+      </Text>
     )
   }
 
@@ -114,11 +132,16 @@ export default function RecognitionScreen() {
           <Text style={styles.text}> Flip </Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.predictionWrapper}>
+
+      <View style={styles.buttonContainer}>
         <Text style={styles.text}>
-          Predictions: {predictions ? predictions.className : 'nothing/predicting'}
+          Predictions: {predictions ? '' : 'Predicting...'}
+        </Text>
+        <Text>
+        { predictions && predictions.map(p => renderPrediction(p))}
         </Text>
       </View>
+      
     </View>
   )
 }
@@ -154,6 +177,6 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 18,
-    color: 'yellow',
+    color: 'white',
   },
 });
