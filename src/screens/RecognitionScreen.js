@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {Camera} from 'expo-camera'
 import TFModel from '../components/TFModel'
+import * as ImageManipulator from 'expo-image-manipulator';
 //import ImageEditor from "@react-native-community/image-editor";
 import {StyleSheet, Text, View, TouchableOpacity, Platform, ImageBackground} from 'react-native'
 
@@ -10,7 +11,7 @@ export default function RecognitionScreen() {
   const [hasPermission, setHasPermission] = useState(null);
   const [type, setType] = useState(Camera.Constants.Type.back);
   const [ratio, setRatio] = useState('')
-  const camera = useRef(null)
+  const cameraRef = useRef(null)
 
   const [previewVisible, setPreviewVisible] = useState(false)
   const [capturedImage, setCapturedImage] = useState(null)
@@ -36,8 +37,8 @@ export default function RecognitionScreen() {
 
   // change the ratio of camera
   prepareRatio = async () => {
-    if (Platform.OS === 'android' && camera){
-      const ratios = await camera.current.getSupportedRatiosAsync();
+    if (Platform.OS === 'android' && cameraRef){
+      const ratios = await cameraRef.current.getSupportedRatiosAsync();
       setRatio(ratios.find((ratio) => ratio === DESIRED_RATIO) || ratios[ratios.length - 1])
     }
   }
@@ -45,6 +46,8 @@ export default function RecognitionScreen() {
   const takePicture = async () => {
     if (!cameraRef) return
     let photo = await cameraRef.current.takePictureAsync()
+
+    let compressedPhoto = await ImageManipulator.manipulateAsync(photo.uri, [{resize: {width: 300, height: 300}}]);
     /*
     .then(({ uri, width, height }) => {
       ImageEditor.cropImage(uri, {
@@ -62,7 +65,7 @@ export default function RecognitionScreen() {
     console.log('passing image to model');
     //const predictions = classifyImage(photo.uri)
     //setPredictions(predictions)
-    setPredictions(await classifyImage(photo.uri))
+    setPredictions(await classifyImage(compressedPhoto.uri))
     console.log(predictions);
   }
 
@@ -96,7 +99,7 @@ export default function RecognitionScreen() {
       {previewVisible && capturedImage ? (
         <CameraPreview photo={capturedImage} />
       ) : (
-        <Camera ref={camera} onCameraReady={prepareRatio} style={styles.camera} type={type} ratio={ratio}>
+        <Camera ref={cameraRef} onCameraReady={prepareRatio} style={styles.camera} type={type} ratio={ratio}>
           <View style={styles.redSquare}></View>
         </Camera>
       )}
